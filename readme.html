@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Guess Market - Exercise 3 (Client / Server)</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.35; }
+  h1 { font-size: 20pt; color: #1F4E79; margin-bottom: 4pt; }
+  h2 { font-size: 14pt; color: #1F4E79; border-bottom: 1px solid #9DC3E6; margin-top: 16pt; }
+  h3 { font-size: 12pt; color: #2E75B6; margin-top: 10pt; }
+  table { border-collapse: collapse; width: 100%; margin: 4pt 0 8pt 0; }
+  th, td { border: 1px solid #A6A6A6; padding: 3pt 6pt; vertical-align: top; font-size: 10pt; }
+  th { background: #DDEBF7; text-align: left; }
+  code { font-family: Consolas, monospace; font-size: 9.5pt; }
+  .bonus { background: #E2EFDA; border: 1px solid #70AD47; padding: 6pt 10pt; }
+</style>
+</head>
+<body>
+
+<h1>Guess Market &ndash; Exercise 3 (Client / Server)</h1>
+
+<div class="bonus">
+<b>Implemented bonus: Chat (5 points).</b> All logged-in users share one chat room. The chat is a tab in the
+client, is refreshed by pull every 0.5 seconds and only the new lines are sent each time (by version number).
+</div>
+
+<h2>Submitters</h2>
+<table>
+  <tr><th>Name</th><th>ID</th><th>Email</th></tr>
+  <tr><td>Shady Aboarya</td><td>325556835</td><td>shadyaburaya04@gmail.com</td></tr>
+  <tr><td>Abed Alqader Wattad</td><td>213726094</td><td>shadyaburaya04@gmail.com</td></tr>
+</table>
+<p><b>GitHub repository:</b> <a href="https://github.com/Shady-ab/GuessMarket-EX3">https://github.com/Shady-ab/GuessMarket-EX3</a></p>
+
+<h2>Submission content and how to run</h2>
+<table>
+  <tr><th>Item</th><th>Description</th></tr>
+  <tr><td><code>GuessMarket.war</code></td><td>The server. Copy it into <code>tomcat/webapps</code>; Tomcat deploys it under the
+      context path <code>/GuessMarket</code>. The WAR contains everything it needs in <code>WEB-INF/lib</code>
+      (engine jar, DTO jar, Gson).</td></tr>
+  <tr><td><code>GuessMarketClient\</code></td><td>The JavaFX client: <code>GuessMarketClient.jar</code>, <code>GuessMarketDto.jar</code>,
+      <code>gson-2.11.0.jar</code>, the JavaFX jars in <code>lib\</code> and <code>run.bat</code>.
+      Double-click <code>run.bat</code> to start a client. Several clients can run at the same time.</td></tr>
+  <tr><td><code>samples\</code></td><td>Example EX3 XML files (valid files and files with errors) and the EX3 schema.</td></tr>
+</table>
+<p>The client connects to <code>http://localhost:8080/GuessMarket</code> automatically. For a different server one can run
+<code>run.bat http://host:port/GuessMarket</code> (optional). Requirements: Java 21 or newer, Tomcat 10.1 (Jakarta Servlet 6).</p>
+<p>Typical check: start Tomcat with the WAR, run two clients, log in with two different names, load
+<code>samples\ex3-valid-binary.xml</code> from the first client, deposit money, open an event and trade from the second client.</p>
+
+<h2>Design decisions</h2>
+<h3>Users and login</h3>
+<ul>
+  <li>Login is by user name only &ndash; no passwords and no sign-up, as required. Names are trimmed, must not be empty
+      and are at most 40 characters. Any language (including Hebrew) is allowed.</li>
+  <li>A name that belongs to a user who is <b>currently online</b> is rejected (HTTP 409) with a clear message, and the
+      login screen lets the user try another name.</li>
+  <li>A user is &quot;online&quot; while the client keeps polling (last request less than 6 seconds ago). After Logout, closing the
+      window or 6 seconds without requests, the same name can log in again and <b>continues the same account</b>
+      (balance, holdings, ledger). This is the natural behaviour for a system without passwords and without persistence.</li>
+  <li>A new user starts with balance 0 and adds money with <b>Deposit</b> (positive amount, at most 1,000,000,000).</li>
+  <li>If an action makes the balance negative (for example the market maker covers a deficit when closing an event) the
+      user is <b>blocked</b> from trading and opening events. A deposit that brings the balance back to 0 or more
+      unblocks the user automatically.</li>
+</ul>
+
+<h3>Events and XML upload</h3>
+<ul>
+  <li>The XML is uploaded as <code>multipart/form-data</code> and parsed directly from the request stream in memory.
+      <b>The file content is never saved on the server</b>: the servlet's <code>fileSizeThreshold</code> equals the maximum
+      file size (5&nbsp;MB), so Tomcat never writes a temporary file, and nothing is kept after parsing. Apache Commons is not used.</li>
+  <li>Validation: everything from EX1 (structure, description, commission 0&ndash;90 with type on-close/on-purchase, exactly one
+      market method, LMSR <code>b&gt;0</code>, order book <code>d&gt;0</code>, initial investment &ge; 0, allow-mint true/false),
+      at least two options with unique names (case-insensitive), no duplicate event names inside the file, and
+      <b>no event whose name already exists on the server</b>. A file with any error is rejected as a whole and nothing is added.</li>
+  <li>Events from all uploads accumulate. Each event gets a serial id from the server (the XML has no event id).
+      The uploading user becomes the market maker of all events in the file.</li>
+  <li>The spelling variants <code>comision</code> and <code>inital</code> that appear in the course examples are accepted
+      together with <code>commission</code> and <code>initial</code>.</li>
+  <li><b>Multi-option events</b> (more than 2 options) are fully supported:
+    <ul>
+      <li>LMSR: cost <i>C(q) = b&middot;ln(&Sigma; e<sup>q<sub>i</sub>/b</sup>)</i> (computed with log-sum-exp for stability),
+          price of option <i>i</i> = softmax, and the market maker pays the subsidy <i>b&middot;ln(N)</i> when opening.</li>
+      <li>Order book: one book per option with price-time priority; a trade is executed at the resting order's price.
+          With allow-mint, if the incoming bid plus the best bids of all other options reach <i>d</i>, a complete set is
+          minted: the resting bids pay their price and the incoming bid pays the complement <i>max(0, d &minus; sum)</i>.
+          The initial investment buys <i>initial / d</i> complete sets for the market maker.</li>
+    </ul></li>
+  <li>Commissions: on-purchase is paid by the buyer on top of the price and goes to the market maker immediately;
+      on-close is taken from the winners' payout when the event is closed. Whatever remains in the event account after
+      closing is returned to the market maker. Every money movement appears as a separate ledger line.</li>
+</ul>
+
+<h3>Server</h3>
+<ul>
+  <li>One engine instance is stored in the <code>ServletContext</code>. All engine methods are <code>synchronized</code>, so
+      concurrent requests are safe and the JSON snapshots sent to clients are consistent. XML parsing happens before
+      taking the lock, so a large upload does not block other users.</li>
+  <li>All responses are JSON (Gson). Errors are returned as <code>{"error": "..."}</code> with a proper status code
+      (400 invalid input, 401 not logged in, 409 name taken, 500 unexpected), and the client shows the message as is.</li>
+  <li>The logged-in user is kept in the HTTP session (cookie <code>JSESSIONID</code>). No data is persisted &ndash; restarting
+      Tomcat starts from scratch, as required.</li>
+</ul>
+
+<h3>Client</h3>
+<ul>
+  <li>HTTP is done with the JDK <code>java.net.http.HttpClient</code> (asynchronous, with a cookie manager), so the client needs
+      no extra libraries except Gson and JavaFX. Network calls never run on the JavaFX thread.</li>
+  <li>Refresh by pull every 0.5 seconds. Lists that are small (events, users, selected event) are fetched whole and the
+      screen is updated only if the content changed; growing lists (ledger, chat) are fetched as deltas
+      (<code>ledgerFrom</code> / <code>version</code>). A poll is skipped while the previous one is still running.</li>
+  <li>If the server stops or the session expires, the client returns to the login screen with an explanation.</li>
+  <li>The window size is computed from the screen size, and every screen uses resizable layouts (split panes, growing tables).
+      The EX2 components were reused: filters, event table, event details text, trade dialogs and formatting.</li>
+</ul>
+
+<h2>Screens</h2>
+<ul>
+  <li><b>Login</b> &ndash; user name only; errors (name taken, server not running) are shown on the same screen.</li>
+  <li><b>Events</b> &ndash; all events in the system with filters (type, status, commission, &quot;only my MM events&quot;),
+      details of the selected event (prices, order books, history, participants) and the actions
+      Open / Close (for the market maker) and Participate / Trade. &quot;Load events XML&quot; is in the top bar.</li>
+  <li><b>My account</b> &ndash; name, balance, blocked state, Deposit; my events with my involvement (as in EX2);
+      the ledger, one line per action including commissions received; and all other users with balance and whether they are market makers.</li>
+  <li><b>Chat</b> (bonus).</li>
+</ul>
+
+<h2>Modules and main classes</h2>
+<p>The project has four modules: <b>GuessMarketEngine</b> (logic, updated from EX2), <b>GuessMarketDto</b> (JSON objects
+shared by server and client), <b>GuessMarketServer</b> (servlets, packed into the WAR) and <b>GuessMarketClient</b> (new JavaFX client).</p>
+
+<h3>Engine (<code>guessmarket.engine</code>)</h3>
+<table>
+  <tr><th>Class</th><th>Role</th></tr>
+  <tr><td><code>GuessMarketEngine</code> / <code>GuessMarketEngineImpl</code></td><td>Multi-user engine: login/logout and online tracking, adding events from an XML stream, deposit, open, buy (LMSR), place order, close. Thread-safe.</td></tr>
+  <tr><td><code>EventXmlParser</code>, <code>EventDefinition</code></td><td>New EX3 parser that reads the XML from an <code>InputStream</code> (no file), validates it and returns event definitions.</td></tr>
+  <tr><td><code>MarketEvent</code></td><td>One event with N options: LMSR pricing, order books, matching, minting, commissions and closing.</td></tr>
+  <tr><td><code>User</code></td><td>Balance, holdings, blocked flag, market-maker events, online time and the ledger. Every credit/debit adds a ledger line.</td></tr>
+  <tr><td><code>LedgerEntry</code></td><td>One ledger line: sequence number, time, description, amount, balance after.</td></tr>
+  <tr><td><code>OptionOrderBook</code>, <code>BookOrder</code>, <code>TradeRecord</code></td><td>Order book of one option, a resting order and a trade history record (from EX2, extended for N options).</td></tr>
+</table>
+
+<h3>DTO (<code>guessmarket.dto</code>)</h3>
+<table>
+  <tr><th>Class</th><th>Role</th></tr>
+  <tr><td><code>Api</code></td><td>Context path, endpoint paths and parameter names &ndash; one place shared by server and client.</td></tr>
+  <tr><td><code>EventSummaryDto</code>, <code>EventDetailsDto</code>, <code>OptionDto</code>, <code>BookDto</code>, <code>OrderDto</code>, <code>TradeDto</code>, <code>ParticipantDto</code></td><td>Events list and full event details.</td></tr>
+  <tr><td><code>MyUserDto</code>, <code>HoldingDto</code>, <code>LedgerLineDto</code>, <code>UserSummaryDto</code></td><td>My account (balance, events, ledger delta) and the other users list.</td></tr>
+  <tr><td><code>ChatDto</code>, <code>ChatLineDto</code>, <code>MessageDto</code></td><td>Chat delta, and the success/error message of every action.</td></tr>
+</table>
+
+<h3>Server (<code>guessmarket.server</code>)</h3>
+<table>
+  <tr><th>Class</th><th>Role</th></tr>
+  <tr><td><code>utils.ApiServlet</code></td><td>Base class of all servlets: UTF-8, JSON, no-cache, login check, updates the user's online time, converts exceptions to JSON errors with status codes.</td></tr>
+  <tr><td><code>utils.ServletUtils</code>, <code>utils.SessionUtils</code></td><td>Shared engine / chat manager in the ServletContext, Gson instance, user name in the session.</td></tr>
+  <tr><td><code>DtoMapper</code></td><td>Builds DTOs from engine objects under the engine lock (consistent snapshot).</td></tr>
+  <tr><td><code>chat.ChatManager</code></td><td>Chat lines with a version number for delta requests (bonus).</td></tr>
+  <tr><td><code>servlets.*</code></td><td>One servlet per action, listed below.</td></tr>
+</table>
+
+<table>
+  <tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr>
+  <tr><td><code>/login</code>, <code>/logout</code></td><td>POST</td><td>Log in by name / log out.</td></tr>
+  <tr><td><code>/upload</code></td><td>POST multipart</td><td>Upload an events XML (part <code>file</code>).</td></tr>
+  <tr><td><code>/events</code></td><td>GET</td><td>All events (summary).</td></tr>
+  <tr><td><code>/event?id=</code></td><td>GET</td><td>Details of one event.</td></tr>
+  <tr><td><code>/event/open</code>, <code>/event/close</code></td><td>POST</td><td>Open / close an event (market maker only).</td></tr>
+  <tr><td><code>/event/buy</code>, <code>/event/order</code></td><td>POST</td><td>Buy LMSR shares / place a buy or sell order.</td></tr>
+  <tr><td><code>/me?ledgerFrom=</code></td><td>GET</td><td>My account and new ledger lines.</td></tr>
+  <tr><td><code>/users</code></td><td>GET</td><td>All users: name, balance, market maker, online.</td></tr>
+  <tr><td><code>/deposit</code></td><td>POST</td><td>Add money.</td></tr>
+  <tr><td><code>/chat?version=</code></td><td>GET / POST</td><td>Read new chat lines / send a line (bonus).</td></tr>
+</table>
+
+<h3>Client (<code>guessmarket.client</code>)</h3>
+<table>
+  <tr><th>Class</th><th>Role</th></tr>
+  <tr><td><code>GuessMarketClientApp</code></td><td>Main class; one window that switches between the login screen and the main screen; logs out on close.</td></tr>
+  <tr><td><code>api.ServerApi</code></td><td>All HTTP calls (GET JSON, POST form, multipart upload) with the session cookie; turns error responses into readable messages.</td></tr>
+  <tr><td><code>api.Poller</code></td><td>Runs the refresh tasks every 0.5 seconds in the background without overlapping requests.</td></tr>
+  <tr><td><code>ui.LoginView</code>, <code>ui.MainView</code></td><td>Login screen; main screen with top bar (user, balance, load XML, logout) and tabs.</td></tr>
+  <tr><td><code>ui.EventsPane</code></td><td>Events screen (reuses EX2 filters, table, details and actions).</td></tr>
+  <tr><td><code>ui.UserPane</code></td><td>My account screen: details, deposit, my events, ledger and other users.</td></tr>
+  <tr><td><code>ui.ChatPane</code></td><td>Chat (bonus).</td></tr>
+  <tr><td><code>ui.TradeDialogs</code>, <code>ui.EventText</code>, <code>ui.UiFormat</code></td><td>EX2 dialogs and text formatting adapted for N options.</td></tr>
+  <tr><td><code>ui.ClientSession</code></td><td>Shared state of the logged-in client and the common way to run an action and show its result.</td></tr>
+</table>
+
+<h2>Sample files</h2>
+<table>
+  <tr><th>File</th><th>Expected result</th></tr>
+  <tr><td><code>ex3-valid-binary.xml</code></td><td>Loads binary LMSR and order-book events.</td></tr>
+  <tr><td><code>ex3-valid-multi-option.xml</code></td><td>Loads a 4-option LMSR event and a 3-option order-book event with mint.</td></tr>
+  <tr><td><code>ex3-error-commission.xml</code></td><td>Rejected: commission out of range.</td></tr>
+  <tr><td><code>ex3-error-duplicate-name.xml</code></td><td>Rejected: two events with the same name in the file.</td></tr>
+  <tr><td><code>ex3-error-existing-name.xml</code></td><td>Rejected after <code>ex3-valid-binary.xml</code> was loaded: event name already exists.</td></tr>
+  <tr><td><code>ex3-error-one-option.xml</code></td><td>Rejected: an event with fewer than two options.</td></tr>
+</table>
+
+</body>
+</html>

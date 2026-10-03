@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Invalid: an event needs at least two options -->
+<Guess-Market>
+  <GM-events>
+    <GM-event name="Only One Option">
+      <description>Nothing to bet against</description>
+      <commission type="on-close">10</commission>
+      <GM-options>
+        <GM-option>Yes</GM-option>
+      </GM-options>
+      <GM-method>
+        <GM-LMSR>
+          <b>100</b>
+        </GM-LMSR>
+      </GM-method>
+    </GM-event>
+  </GM-events>
+</Guess-Market>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Invalid: two events with the same name in one file -->
+<Guess-Market>
+  <GM-events>
+    <GM-event name="Same Name">
+      <description>First</description>
+      <commission type="on-close">10</commission>
+      <GM-options>
+        <GM-option>Yes</GM-option>
+        <GM-option>No</GM-option>
+      </GM-options>
+      <GM-method>
+        <GM-LMSR>
+          <b>100</b>
+        </GM-LMSR>
+      </GM-method>
+    </GM-event>
+    <GM-event name="Same Name">
+      <description>Second</description>
+      <commission type="on-close">10</commission>
+      <GM-options>
+        <GM-option>Yes</GM-option>
+        <GM-option>No</GM-option>
+      </GM-options>
+      <GM-method>
+        <GM-order-book allow-mint="true" initial="10" d="1"/>
+      </GM-method>
+    </GM-event>
+  </GM-events>
+</Guess-Market>

@@ -1,0 +1,64 @@
+.root {
+    -fx-font-size: 13px;
+}
+
+.app-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2d6a9f;
+}
+
+.login-title {
+    -fx-font-size: 30px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2d6a9f;
+}
+
+.top-bar {
+    -fx-background-color: #eef3f8;
+    -fx-border-color: transparent transparent #c8d4e0 transparent;
+}
+
+.section-title {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.balance-label {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1b7a3a;
+}
+
+.hint-text {
+    -fx-text-fill: #555555;
+}
+
+.error-text {
+    -fx-text-fill: #b00020;
+}
+
+.filters {
+    -fx-padding: 4 0 8 0;
+}
+
+.toggle-button:selected {
+    -fx-background-color: #2d6a9f;
+    -fx-text-fill: white;
+}
+
+.details-area {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+}
+
+.credit-row .text {
+    -fx-fill: #1b7a3a;
+}
+
+.debit-row .text {
+    -fx-fill: #b00020;
+}
+
+.table-row-cell:selected .text {
+    -fx-fill: white;
+}

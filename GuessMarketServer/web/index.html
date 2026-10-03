@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Guess Market Server</title>
+</head>
+<body>
+<h1>Guess Market server is running</h1>
+<p>Start the JavaFX client (run.bat in the client folder) to work with the system.</p>
+<h2>Endpoints</h2>
+<ul>
+    <li>POST login (username)</li>
+    <li>POST logout</li>
+    <li>POST upload (multipart, part "file")</li>
+    <li>GET events</li>
+    <li>GET event?id=</li>
+    <li>POST event/open (id), event/close (id, winner), event/buy (id, option, quantity),
+        event/order (id, option, side, quantity, price)</li>
+    <li>GET users</li>
+    <li>GET me?ledgerFrom=</li>
+    <li>POST deposit (amount)</li>
+    <li>GET chat?version= / POST chat (message)</li>
+</ul>
+</body>
+</html>
