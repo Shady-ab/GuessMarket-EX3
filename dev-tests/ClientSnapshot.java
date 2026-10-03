@@ -21,7 +21,7 @@ import java.util.Map;
  * Renders the client screens to PNG files without showing any window (no keyboard or mouse use).
  * Needs a running server. Usage (from dist\GuessMarketClient):
  * java --module-path lib --add-modules javafx.controls -cp "GuessMarketClient.jar;GuessMarketDto.jar;gson-2.11.0.jar"
- *      ..\..\dev-tests\ClientSnapshot.java USER OUTPUT_DIR
+ *      ..\..\dev-tests\ClientSnapshot.java USER OUTPUT_DIR [EVENT_ROW] [WIDTH HEIGHT]
  */
 public class ClientSnapshot extends Application {
     public static void main(String[] args) {
@@ -30,8 +30,14 @@ public class ClientSnapshot extends Application {
 
     @Override
     public void start(Stage ignored) throws Exception {
-        String user = getParameters().getRaw().get(0);
-        File out = new File(getParameters().getRaw().get(1));
+        var raw = getParameters().getRaw();
+        String user = raw.get(0);
+        File out = new File(raw.get(1));
+        int row = raw.size() > 2 ? Integer.parseInt(raw.get(2)) : 0;
+        if (raw.size() > 4) {
+            width = Integer.parseInt(raw.get(3));
+            height = Integer.parseInt(raw.get(4));
+        }
         out.mkdirs();
         ServerApi api = new ServerApi(ServerApi.DEFAULT_SERVER);
 
@@ -48,13 +54,12 @@ public class ClientSnapshot extends Application {
                 runFx(() -> {
                     scene.snapshot(null);
                     TableView<?> table = (TableView<?>) tabs.getTabs().get(0).getContent().lookup(".table-view");
-                    table.getSelectionModel().select(Math.min(4, table.getItems().size() - 1));
+                    table.getSelectionModel().select(Math.min(row, table.getItems().size() - 1));
                 });
                 Thread.sleep(2000);
                 runFx(() -> {
-                    var area = (javafx.scene.control.TextArea) tabs.getTabs().get(0).getContent().lookup(".details-area");
-                    System.out.println("details text starts with: "
-                            + area.getText().substring(0, Math.min(60, area.getText().length())).replace('\n', '|'));
+                    var name = (javafx.scene.control.Label) tabs.getTabs().get(0).getContent().lookup(".event-name");
+                    System.out.println("selected event: " + (name == null ? "none" : name.getText()));
                     save(scene, new File(out, "events.png"));
                 });
                 runFx(() -> tabs.getSelectionModel().select(1));
@@ -73,8 +78,11 @@ public class ClientSnapshot extends Application {
         }).start();
     }
 
+    private static int width = 1280;
+    private static int height = 820;
+
     private static Scene scene(Parent root) {
-        Scene scene = new Scene(root, 1280, 820);
+        Scene scene = new Scene(root, width, height);
         scene.getStylesheets().add(ClientSnapshot.class.getResource("/guessmarket/client/ui/app.css").toExternalForm());
         return scene;
     }

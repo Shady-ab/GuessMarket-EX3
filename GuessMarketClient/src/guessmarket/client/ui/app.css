@@ -62,3 +62,39 @@
 .table-row-cell:selected .text {
     -fx-fill: white;
 }
+
+.subsection-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.event-name {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2d6a9f;
+}
+
+.info-key {
+    -fx-font-weight: bold;
+    -fx-text-fill: #444444;
+}
+
+.details-scroll {
+    -fx-background-color: transparent;
+}
+
+.details-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.option-box {
+    -fx-background-color: #f6f8fb;
+    -fx-border-color: #c8d4e0;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.option-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}

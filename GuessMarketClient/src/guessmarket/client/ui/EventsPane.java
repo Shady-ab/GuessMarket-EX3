@@ -10,6 +10,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -18,7 +19,6 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
@@ -29,15 +29,15 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Events screen: every event in the system, of every type and status, with the Exercise-2 filters, the details
- * of the selected event and the actions the logged-in user may take on it.
+ * Events screen, laid out as in the course sketch: on the left every event in the system with the filter line,
+ * on the right the selected event's details, order books, participations and the actions the user may take.
  */
 final class EventsPane extends BorderPane {
     private static final Type EVENT_LIST = new TypeToken<List<EventSummaryDto>>() { }.getType();
 
     private final ClientSession session;
     private final TableView<EventRow> eventsTable = new TableView<>();
-    private final TextArea detailsArea = new TextArea();
+    private final EventDetailsView detailsView;
     private final ToggleButton lmsrToggle = filterToggle("LMSR");
     private final ToggleButton orderBookToggle = filterToggle("Order Book");
     private final ToggleButton notStartedToggle = filterToggle("Not started");
@@ -63,6 +63,11 @@ final class EventsPane extends BorderPane {
         this.session = session;
         setPadding(new Insets(10));
 
+        openButton.setOnAction(e -> openSelected());
+        closeButton.setOnAction(e -> closeSelected());
+        tradeButton.setOnAction(e -> tradeSelected());
+        detailsView = new EventDetailsView(new FlowPane(10, 8, tradeButton, openButton, closeButton));
+
         mineToggle.setOnAction(e -> applyFilters());
         FlowPane filters = new FlowPane(8, 8,
                 new Label("Type:"), lmsrToggle, orderBookToggle,
@@ -72,15 +77,15 @@ final class EventsPane extends BorderPane {
 
         eventsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         eventsTable.setPlaceholder(new Label("No events yet. Use \"Load events XML\" to upload a file."));
-        eventsTable.getColumns().add(col("ID", "id", 45));
-        eventsTable.getColumns().add(col("Name", "name", 200));
-        eventsTable.getColumns().add(col("Status", "status", 90));
-        eventsTable.getColumns().add(col("Type", "type", 90));
-        eventsTable.getColumns().add(col("Options", "options", 65));
-        eventsTable.getColumns().add(col("Commission", "commission", 120));
-        eventsTable.getColumns().add(col("Account", "account", 90));
-        eventsTable.getColumns().add(col("Market maker", "marketMaker", 110));
-        eventsTable.getColumns().add(col("Winner", "winner", 100));
+        eventsTable.getColumns().add(col("ID", "id", 40));
+        eventsTable.getColumns().add(col("Name", "name", 180));
+        eventsTable.getColumns().add(col("Status", "status", 85));
+        eventsTable.getColumns().add(col("Type", "type", 85));
+        eventsTable.getColumns().add(col("Options", "options", 60));
+        eventsTable.getColumns().add(col("Commission", "commission", 110));
+        eventsTable.getColumns().add(col("Account", "account", 80));
+        eventsTable.getColumns().add(col("Market maker", "marketMaker", 105));
+        eventsTable.getColumns().add(col("Winner", "winner", 90));
         eventsTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
             if (updatingTable) {
                 return;
@@ -88,35 +93,30 @@ final class EventsPane extends BorderPane {
             selectedEventId = newV == null ? null : newV.getEventId();
             details = null;
             lastDetailsJson = null;
-            detailsArea.setText(selectedEventId == null ? "Select an event." : "Loading...");
+            detailsView.showPlaceholder();
             updateButtons();
             refreshDetails();
         });
 
-        detailsArea.setEditable(false);
-        detailsArea.setWrapText(true);
-        detailsArea.setText("Select an event.");
-        detailsArea.getStyleClass().add("details-area");
-
         Label eventsTitle = new Label("Events");
         eventsTitle.getStyleClass().add("section-title");
-        VBox top = new VBox(8, eventsTitle, filters, eventsTable);
+        VBox left = new VBox(8, eventsTitle, filters, eventsTable);
+        left.setPadding(new Insets(0, 8, 0, 0));
         VBox.setVgrow(eventsTable, Priority.ALWAYS);
-        Label detailsTitle = new Label("Selected event");
-        detailsTitle.getStyleClass().add("section-title");
-        VBox bottom = new VBox(8, detailsTitle, detailsArea);
-        VBox.setVgrow(detailsArea, Priority.ALWAYS);
-        SplitPane split = new SplitPane(top, bottom);
-        split.setOrientation(Orientation.VERTICAL);
-        split.setDividerPositions(0.45);
-        setCenter(split);
 
-        openButton.setOnAction(e -> openSelected());
-        closeButton.setOnAction(e -> closeSelected());
-        tradeButton.setOnAction(e -> tradeSelected());
-        HBox actions = new HBox(10, openButton, closeButton, tradeButton);
-        actions.setPadding(new Insets(10, 0, 0, 0));
-        setBottom(actions);
+        Label detailsTitle = new Label("Event details and trade");
+        detailsTitle.getStyleClass().add("section-title");
+        ScrollPane detailsScroll = new ScrollPane(detailsView);
+        detailsScroll.setFitToWidth(true);
+        detailsScroll.getStyleClass().add("details-scroll");
+        VBox right = new VBox(8, detailsTitle, detailsScroll);
+        right.setPadding(new Insets(0, 0, 0, 8));
+        VBox.setVgrow(detailsScroll, Priority.ALWAYS);
+
+        SplitPane split = new SplitPane(left, right);
+        split.setOrientation(Orientation.HORIZONTAL);
+        split.setDividerPositions(0.5);
+        setCenter(split);
         updateButtons();
     }
 
@@ -157,7 +157,7 @@ final class EventsPane extends BorderPane {
                 }
                 lastDetailsJson = json;
                 details = parsed;
-                setTextKeepingScroll(detailsArea, EventText.details(parsed));
+                detailsView.show(parsed);
                 updateButtons();
             });
         });
@@ -192,7 +192,7 @@ final class EventsPane extends BorderPane {
             selectedEventId = null;
             details = null;
             lastDetailsJson = null;
-            detailsArea.setText("Select an event.");
+            detailsView.showPlaceholder();
         }
         countLabel.setText("  Showing " + rows.size() + " of " + events.size());
         updateButtons();

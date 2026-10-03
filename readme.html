@@ -41,7 +41,7 @@ client, is refreshed by pull every 0.5 seconds and only the new lines are sent e
   <tr><td><code>GuessMarketClient\</code></td><td>The JavaFX client: <code>GuessMarketClient.jar</code>, <code>GuessMarketDto.jar</code>,
       <code>gson-2.11.0.jar</code>, the JavaFX jars in <code>lib\</code> and <code>run.bat</code>.
       Double-click <code>run.bat</code> to start a client. Several clients can run at the same time.</td></tr>
-  <tr><td><code>samples\</code></td><td>Example EX3 XML files (valid files and files with errors) and the EX3 schema.</td></tr>
+  <tr><td><code>samples\</code></td><td>The course sample files and schema (<code>samples\course</code>) and our own example files (valid files and files with errors).</td></tr>
 </table>
 <p>The client connects to <code>http://localhost:8080/GuessMarket</code> automatically. For a different server one can run
 <code>run.bat http://host:port/GuessMarket</code> (optional). Requirements: Java 21 or newer, Tomcat 10.1 (Jakarta Servlet 6).</p>
@@ -117,9 +117,11 @@ client, is refreshed by pull every 0.5 seconds and only the new lines are sent e
 <h2>Screens</h2>
 <ul>
   <li><b>Login</b> &ndash; user name only; errors (name taken, server not running) are shown on the same screen.</li>
-  <li><b>Events</b> &ndash; all events in the system with filters (type, status, commission, &quot;only my MM events&quot;),
-      details of the selected event (prices, order books, history, participants) and the actions
-      Open / Close (for the market maker) and Participate / Trade. &quot;Load events XML&quot; is in the top bar.</li>
+  <li><b>Events</b> &ndash; laid out as in the course sketch. On the left: the filter line (method, status, commission,
+      &quot;only my MM events&quot;) and all events in the system. On the right, &quot;Event details and trade&quot;: the event's
+      details, the actions Participate / Trade, Open and Close (the last two for the market maker only), one box per
+      option (its order book with bids and asks for order-book events, or its LMSR price), and the participations
+      information and trade history. &quot;Load events XML&quot; is in the top bar.</li>
   <li><b>My account</b> &ndash; name, balance, blocked state, Deposit; my events with my involvement (as in EX2);
       the ledger, one line per action including commissions received; and all other users with balance and whether they are market makers.</li>
   <li><b>Chat</b> (bonus).</li>
@@ -180,7 +182,8 @@ shared by server and client), <b>GuessMarketServer</b> (servlets, packed into th
   <tr><td><code>api.ServerApi</code></td><td>All HTTP calls (GET JSON, POST form, multipart upload) with the session cookie; turns error responses into readable messages.</td></tr>
   <tr><td><code>api.Poller</code></td><td>Runs the refresh tasks every 0.5 seconds in the background without overlapping requests.</td></tr>
   <tr><td><code>ui.LoginView</code>, <code>ui.MainView</code></td><td>Login screen; main screen with top bar (user, balance, load XML, logout) and tabs.</td></tr>
-  <tr><td><code>ui.EventsPane</code></td><td>Events screen (reuses EX2 filters, table, details and actions).</td></tr>
+  <tr><td><code>ui.EventsPane</code></td><td>Events screen: filter line and events table (reused from EX2) next to the details panel.</td></tr>
+  <tr><td><code>ui.EventDetailsView</code></td><td>&quot;Event details and trade&quot; panel: event details, actions, a box per option with its order book or LMSR price, participations and trade history.</td></tr>
   <tr><td><code>ui.UserPane</code></td><td>My account screen: details, deposit, my events, ledger and other users.</td></tr>
   <tr><td><code>ui.ChatPane</code></td><td>Chat (bonus).</td></tr>
   <tr><td><code>ui.TradeDialogs</code>, <code>ui.EventText</code>, <code>ui.UiFormat</code></td><td>EX2 dialogs and text formatting adapted for N options.</td></tr>
@@ -190,6 +193,8 @@ shared by server and client), <b>GuessMarketServer</b> (servlets, packed into th
 <h2>Sample files</h2>
 <table>
   <tr><th>File</th><th>Expected result</th></tr>
+  <tr><td><code>course\ex3-course-three-events.xml</code></td><td>Course file: loads 3 events (2 order-book, 1 LMSR). Loading it a second time is rejected because the names already exist.</td></tr>
+  <tr><td><code>course\ex3-course-mujtaba.xml</code></td><td>Course file: loads 1 LMSR event; the events of both files accumulate.</td></tr>
   <tr><td><code>ex3-valid-binary.xml</code></td><td>Loads binary LMSR and order-book events.</td></tr>
   <tr><td><code>ex3-valid-multi-option.xml</code></td><td>Loads a 4-option LMSR event and a 3-option order-book event with mint.</td></tr>
   <tr><td><code>ex3-error-commission.xml</code></td><td>Rejected: commission out of range.</td></tr>
